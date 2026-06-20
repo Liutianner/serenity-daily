@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-fetch_posts.py — 从 Nitter 实例抓取 X/Twitter 用户 @serenity 的帖子
+fetch_posts.py — 从 RSS Feed 抓取 X/Twitter 帖子
 """
 
 import json
@@ -9,121 +9,144 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import requests
-from bs4 import BeautifulSoup
 
-# Nitter 镜像列表
-NITTER_INSTANCES = [
-    "https://nitter.net",
-    "https://nitter.1d4.us",
-    "https://nitter.kavin.rocks",
-    "https://nitter.poast.org",
-    "https://nitter.cz",
-    "https://nitter.lacontrevoie.fr",
-    "https://nitter.nl",
-]
-
-USERNAME = "serenity"
+# 你的 RSS.app 订阅链接
+RSS_URL = "https://rss.app/feeds/cF5wm78REpjmkRdm.xml"
 OUTPUT_FILE = "raw_posts.json"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept": "text/xml,application/xml,application/xhtml+xml",
 }
 
 
-def fetch_html(url: str) -> Optional[str]:
+def fetch_rss(url: str) -> Optional[str]:
+    """抓取 RSS XML"""
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         return resp.text
     except Exception as e:
-        print(f"    ⚠️  {e}")
+        print(f"  ❌ RSS 请求失败: {e}")
         return None
 
 
-def parse_tweets(html: str) -> list:
-    soup = BeautifulSoup(html, "html.parser")
+def parse_rss(xml: str) -> list:
+    """解析 RSS XML，提取帖子"""
+    import xml.etree.ElementTree as ET
+
     tweets = []
+    root = ET.fromstring(xml)
 
-    for item in soup.select("div.timeline-item"):
+    # RSS namespace
+    ns = {"": "http://www.w3.org/2005/Atom"}
+
+    # 尝试标准 RSS 2.0 格式
+    for item in root.iter("item"):
         try:
-            content_el = item.select_one("div.tweet-content")
-            if not content_el:
-                continue
-            text = content_el.get_text(strip=True)
-            if not text:
-                continue
+            title = item.findtext("title", "")
+            desc = item.findtext("description", "")
+            link = item.findtext("link", "")
+            pub_date = item.findtext("pubDate", "")
 
-            # 日期
-            time_el = item.select_one("span.tweet-date time")
-            pub_date = time_el.get("datetime", "") if time_el else ""
+            # 优先用 description（通常包含推文正文）
+            text = desc or title
 
-            # 链接
-            link_el = item.select_one("a.tweet-link")
-            url = ""
-            if link_el:
-                href = link_el.get("href", "")
-                url = f"https://nitter.net{href}" if href.startswith("/") else href
+            # 清理 HTML 标签
+            import re
+            text = re.sub(r"<[^>]+>", "", text).strip()
 
             tweets.append({
                 "text": text,
-                "url": url,
+                "url": link.strip(),
                 "date": pub_date,
                 "fetched_at": datetime.now(timezone.utc).isoformat(),
             })
         except Exception as e:
-            print(f"    ⚠️  解析出错: {e}")
+            print(f"  ⚠️ 解析条目出错: {e}")
             continue
+
+    # 如果 RSS 2.0 没找到，试试 Atom 格式
+    if not tweets:
+        for entry in root.iter("{http://www.w3.org/2005/Atom}entry"):
+            try:
+                title = entry.findtext("{http://www.w3.org/2005/Atom}title", "")
+                content = entry.findtext("{http://www.w3.org/2005/Atom}content", "")
+                link_el = entry.find("{http://www.w3.org/2005/Atom}link")
+                link = link_el.get("href", "") if link_el is not None else ""
+                published = entry.findtext("{http://www.w3.org/2005/Atom}published", "")
+
+                import re
+                text = re.sub(r"<[^>]+>", "", content or title).strip()
+
+                tweets.append({
+                    "text": text,
+                    "url": link.strip(),
+                    "date": published,
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as e:
+                print(f"  ⚠️ 解析 Atom 条目出错: {e}")
+                continue
 
     return tweets
 
 
+def filter_recent(tweets: list, hours: int = 48) -> list:
+    """筛选最近 N 小时的帖子"""
+    now = datetime.now(timezone.utc)
+    cutoff = now.timestamp() - hours * 3600
+    filtered = []
+
+    # 常见时间格式
+    from email.utils import parsedate_to_datetime
+
+    for t in tweets:
+        date_str = t.get("date", "")
+        try:
+            # 尝试 RFC 2822 (RSS 标准)
+            dt = parsedate_to_datetime(date_str)
+            if dt.timestamp() >= cutoff:
+                filtered.append(t)
+        except Exception:
+            try:
+                # 尝试 ISO 格式 (Atom)
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                if dt.timestamp() >= cutoff:
+                    filtered.append(t)
+            except Exception:
+                # 未知格式，保留全部
+                filtered.append(t)
+                continue
+
+    return filtered if filtered else tweets
+
+
 def main():
     print("=" * 50)
-    print(f"📡 抓取 @{USERNAME} 的帖子")
+    print("📡 通过 RSS 抓取 @aleabitoreddit 的帖子")
     print(f"   时间: {datetime.now(timezone.utc).isoformat()}")
+    print(f"   RSS: {RSS_URL}")
     print("=" * 50)
 
-    all_tweets = []
-    instance_used = ""
-
-    for inst in NITTER_INSTANCES:
-        url = f"{inst}/{USERNAME}"
-        print(f"\n🌐 尝试: {url}")
-        html = fetch_html(url)
-        if not html:
-            print(f"    ❌ 不可用")
-            continue
-        tweets = parse_tweets(html)
-        if tweets:
-            all_tweets = tweets
-            instance_used = inst
-            print(f"    ✅ 成功解析 {len(tweets)} 条帖子")
-            break
-        else:
-            print(f"    ⚠️ 无内容")
-            continue
-
-    if not all_tweets:
-        print("\n❌ 所有 Nitter 实例均不可用")
+    xml = fetch_rss(RSS_URL)
+    if not xml:
         sys.exit(1)
 
-    # 尝试按今天筛选
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    today_posts = [t for t in all_tweets if today_str in t.get("date", "")]
-    final_posts = today_posts if today_posts else all_tweets
+    all_tweets = parse_rss(xml)
+    print(f"\n📊 RSS 解析到 {len(all_tweets)} 条帖子")
 
-    print(f"\n📊 当日帖子: {len(today_posts)} / 总计: {len(all_tweets)}")
+    recent = filter_recent(all_tweets, hours=48)
+    print(f"   近 48 小时: {len(recent)} 条")
 
     output = {
-        "username": USERNAME,
+        "username": "aleabitoreddit",
+        "source": "RSS",
+        "rss_url": RSS_URL,
         "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "instance_used": instance_used,
-        "today_count": len(today_posts),
         "total_count": len(all_tweets),
-        "is_today_only": bool(today_posts),
-        "tweets": final_posts,
+        "recent_count": len(recent),
+        "tweets": recent,
     }
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
