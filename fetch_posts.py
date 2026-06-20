@@ -136,7 +136,7 @@ def main():
     all_tweets = parse_rss(xml)
     print(f"\n📊 RSS 解析到 {len(all_tweets)} 条帖子")
 
-    recent = filter_recent(all_tweets, hours=48)
+    recent = filter_recent(all_tweets, hours=24)
     print(f"   近 48 小时: {len(recent)} 条")
 
     output = {
