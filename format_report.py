@@ -20,7 +20,7 @@ def build_report(data: dict) -> str:
     tweets = data.get("tweets", [])
     username = data.get("username", "serenity")
     fetched_at = data.get("fetched_at", "")
-    today_count = data.get("today_count", 0)
+    today_count = data.get("recent_count", data.get("today_count", 0))
     total_count = data.get("total_count", 0)
 
     # 尝试解析抓取时间
