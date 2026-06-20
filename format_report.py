@@ -31,7 +31,7 @@ def build_report(data: dict) -> str:
         date_str = fetched_at
 
     lines = []
-    lines.append(f"# 📡 @{username} 今日帖子摘要")
+    lines.append(f"# 📡 Serenity (@{username}) 今日帖子摘要")
     lines.append(f"")
     lines.append(f"> 抓取时间: {date_str}")
     lines.append(f"> 当日帖子: {today_count} | 总帖子数: {total_count}")
@@ -64,7 +64,7 @@ def build_report(data: dict) -> str:
         lines.append(f"")
 
     # 尾部统计
-    lines.append(f"*共 {len(tweets)} 条帖子 — 由自动化工具自动生成*")
+    lines.append(f"*共 {len(tweets)} 条帖子 — Serenity 日报由自动化工具自动生成*")
 
     return "\n".join(lines)
 
