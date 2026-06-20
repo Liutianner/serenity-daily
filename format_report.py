@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-format_report.py — 将抓取的帖子整理为结构化报告
+format_report.py — Format scraped posts into a structured English Markdown report
 """
 
 import json
@@ -20,10 +20,9 @@ def build_report(data: dict) -> str:
     tweets = data.get("tweets", [])
     username = data.get("username", "serenity")
     fetched_at = data.get("fetched_at", "")
-    today_count = data.get("recent_count", data.get("today_count", 0))
+    recent_count = data.get("recent_count", data.get("today_count", 0))
     total_count = data.get("total_count", 0)
 
-    # 尝试解析抓取时间
     try:
         dt = datetime.fromisoformat(fetched_at)
         date_str = dt.strftime("%Y-%m-%d %H:%M UTC")
@@ -31,16 +30,16 @@ def build_report(data: dict) -> str:
         date_str = fetched_at
 
     lines = []
-    lines.append(f"# 📡 Serenity (@{username}) 今日帖子摘要")
+    lines.append(f"# 📡 Serenity (@{username}) Daily Digest")
     lines.append(f"")
-    lines.append(f"> 抓取时间: {date_str}")
-    lines.append(f"> 当日帖子: {today_count} | 总帖子数: {total_count}")
+    lines.append(f"> Fetched: {date_str}")
+    lines.append(f"> Recent posts: {recent_count} | Total: {total_count}")
     lines.append(f"")
     lines.append(f"---")
     lines.append(f"")
 
     if not tweets:
-        lines.append("*今日无新帖子。*")
+        lines.append("*No new posts.*")
         return "\n".join(lines)
 
     for i, t in enumerate(tweets, 1):
@@ -48,7 +47,6 @@ def build_report(data: dict) -> str:
         url = t.get("url", "")
         date = t.get("date", "")
 
-        # 截取前 120 字作为预览
         preview = text[:120] + ("..." if len(text) > 120 else "")
 
         lines.append(f"### {i}. {preview}")
@@ -58,20 +56,19 @@ def build_report(data: dict) -> str:
         if date:
             lines.append(f"📅 {date}")
         if url:
-            lines.append(f"🔗 [查看原文]({url})")
+            lines.append(f"🔗 [Source]({url})")
         lines.append(f"")
         lines.append(f"---")
         lines.append(f"")
 
-    # 尾部统计
-    lines.append(f"*共 {len(tweets)} 条帖子 — Serenity 日报由自动化工具自动生成*")
+    lines.append(f"*{len(tweets)} posts — Automated Serenity Daily Digest*")
 
     return "\n".join(lines)
 
 
 def main():
     if not os.path.exists(INPUT_FILE):
-        print(f"❌ 找不到 {INPUT_FILE}，请先运行 fetch_posts.py")
+        print(f"❌ Cannot find {INPUT_FILE}, run fetch_posts.py first")
         return
 
     data = load_posts(INPUT_FILE)
@@ -80,8 +77,8 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(report)
 
-    print(f"📄 报告已生成: {OUTPUT_FILE}")
-    print(f"   共 {data.get('today_count', 0)} 条帖子")
+    print(f"📄 Report generated: {OUTPUT_FILE}")
+    print(f"   {data.get('recent_count', 0)} posts")
 
 
 if __name__ == "__main__":
