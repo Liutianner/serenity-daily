@@ -78,7 +78,7 @@ def main():
     keyword = "Serenity"
     if keyword not in report:
         report = f"{keyword}\n\n{report}"
-    title = f"Serenity Daily Digest"
+    title = f"Serenity 今日帖子摘要"
 
     success = send_to_dingtalk(webhook_url, title, report)
     if not success:
