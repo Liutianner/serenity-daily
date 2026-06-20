@@ -74,7 +74,11 @@ def main():
 
     report = load_report(INPUT_FILE)
     report = convert_markdown_for_dingtalk(report)
-    title = "📡 Serenity 今日帖子摘要"
+    # 钉钉关键词匹配要求：消息内容必须包含关键词
+    keyword = "更新今天的"
+    if keyword not in report:
+        report = f"{keyword}\n\n{report}"
+    title = f"{keyword} Serenity 帖子"
 
     success = send_to_dingtalk(webhook_url, title, report)
     if not success:
