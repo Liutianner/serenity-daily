@@ -2,12 +2,44 @@ name: Serenity Daily Digest
 
 on:
   schedule:
-    # 每天北京时间 09:00 运行 (UTC 01:00)
+    # 每小时跑一次，覆盖 UTC 20:00~03:00（北京 04:00~11:00）
+    # GitHub 免费版定时任务有 4-6 小时延迟
+    # 设置多个时间点，总有一个会在延迟后落在 09:00 北京时间的窗口内
+    - cron: '0 20 * * *'
+    - cron: '0 21 * * *'
+    - cron: '0 22 * * *'
+    - cron: '0 23 * * *'
+    - cron: '0 0 * * *'
     - cron: '0 1 * * *'
+    - cron: '0 2 * * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:  # 手动触发
 
 jobs:
+  time-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check if it's time to push
+        id: check
+        run: |
+          # 北京时间 08:45 ~ 09:15 之间才执行
+          BEIJING_HOUR=$(TZ='Asia/Shanghai' date +%H)
+          BEIJING_MIN=$(TZ='Asia/Shanghai' date +%M)
+          TOTAL_MIN=$((10#$BEIJING_HOUR * 60 + 10#$BEIJING_MIN))
+          # 09:00 ± 15 分钟 = 525~555 分钟
+          if [ "$TOTAL_MIN" -ge 525 ] && [ "$TOTAL_MIN" -le 555 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "✅ 北京时间 ${BEIJING_HOUR}:${BEIJING_MIN}，在推送窗口内"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "⏭️ 跳过：北京时间 ${BEIJING_HOUR}:${BEIJING_MIN}，不在推送窗口"
+          fi
+
   fetch-and-push:
+    needs: time-check
+    if: needs.time-check.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,7 +58,7 @@ jobs:
 
       - name: Fetch posts from Nitter
         run: python fetch_posts.py
-        continue-on-error: true  # Nitter 可能不可用，继续执行
+        continue-on-error: true
 
       - name: Generate report
         run: python format_report.py
