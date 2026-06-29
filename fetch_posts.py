@@ -10,8 +10,8 @@ from typing import Optional
 
 import requests
 
-# 你的 RSS.app 订阅链接
-RSS_URL = "https://rss.app/feeds/cF5wm78REpjmkRdm.xml"
+# Nitter RSS 源（替代 rss.app，因免费额度用完）
+RSS_URL = "https://nitter.net/aleabitoreddit/rss"
 OUTPUT_FILE = "raw_posts.json"
 
 HEADERS = {
