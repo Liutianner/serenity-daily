@@ -22,7 +22,7 @@ DINGTALK_WEBHOOK = os.environ.get(
     "DINGTALK_WEBHOOK",
     "https://oapi.dingtalk.com/robot/send?access_token=271e4d2114e8303b47517a8017f4a4584af66f1c9a999b06a646afd94a6b2c3d"
 )
-RSS_URL = "https://rss.app/feeds/cF5wm78REpjmkRdm.xml"
+RSS_URL = "https://nitter.net/aleabitoreddit/rss"
 USERNAME = "aleabitoreddit"
 # =============================
 
