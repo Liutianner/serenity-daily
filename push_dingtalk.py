@@ -61,7 +61,8 @@ def send_to_dingtalk(webhook_url: str, title: str, content: str) -> bool:
 
 
 def main():
-    webhook_url = os.environ.get("DINGTALK_WEBHOOK", "")
+    webhook_url = os.environ.get("DINGTALK_WEBHOOK", "") or \
+        "https://oapi.dingtalk.com/robot/send?access_token=271e4d2114e8303b47517a8017f4a4584af66f1c9a999b06a646afd94a6b2c3d"
     if not webhook_url:
         print("❌ 未设置环境变量 DINGTALK_WEBHOOK")
         print("   在 GitHub Secrets 中添加，值如:")
